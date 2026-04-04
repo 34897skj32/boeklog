@@ -308,7 +308,20 @@ const sb={
   async signOut(t){await fetch(SUPABASE_URL+'/auth/v1/logout',{method:'POST',headers:this.aH(t)})},
   async resetPw(e){await fetch(SUPABASE_URL+'/auth/v1/recover',{method:'POST',headers:this.h,body:JSON.stringify({email:e})})},
   async getRow(t,uid){const r=await fetch(SUPABASE_URL+'/rest/v1/books?user_id=eq.'+uid+'&select=*',{headers:this.aH(t)});const d=await r.json();return Array.isArray(d)?d[0]:null},
-  async upsert(t,uid,data){const r=await fetch(SUPABASE_URL+'/rest/v1/books',{method:'POST',headers:{...this.aH(t),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:uid,data:data})});return r.ok}
+  async upsert(t,uid,data){
+    // Eerst checken of rij al bestaat
+    const check=await fetch(SUPABASE_URL+'/rest/v1/books?user_id=eq.'+uid+'&select=user_id',{headers:this.aH(t)});
+    const existing=await check.json();
+    if(existing&&existing.length>0){
+      // UPDATE
+      const r=await fetch(SUPABASE_URL+'/rest/v1/books?user_id=eq.'+uid,{method:'PATCH',headers:{...this.aH(t),'Prefer':'return=minimal'},body:JSON.stringify({data:data})});
+      return r.ok;
+    } else {
+      // INSERT
+      const r=await fetch(SUPABASE_URL+'/rest/v1/books',{method:'POST',headers:{...this.aH(t),'Prefer':'return=minimal'},body:JSON.stringify({user_id:uid,data:data})});
+      return r.ok;
+    }
+  }
 };
 let books=[],session=null,saveTimer=null,currentRating=0,activeTab='library',genreFilter='all';
 function getSession(){try{return JSON.parse(localStorage.getItem('bl_sess'))}catch{return null}}
