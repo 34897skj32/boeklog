@@ -6,6 +6,7 @@
 <title>Boeklog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
 <style>
   :root {
     --ink:#1a1714;--ink2:#4a453f;--ink3:#9a928a;
@@ -238,6 +239,15 @@
       <div class="search-lookup">
         <input type="text" id="lookupInput" placeholder="bijv. De Aanslag of Harry Potter...">
         <button class="btn btn-secondary btn-sm" id="lookupBtn">Zoeken</button>
+        <button class="btn btn-secondary btn-sm" id="scanBtn" title="Scan barcode">📷</button>
+      </div>
+      <div id="scannerWrap" style="display:none;margin-top:10px;border-radius:10px;overflow:hidden;position:relative;background:#000;max-height:220px">
+        <video id="scannerVideo" style="width:100%;display:block;max-height:220px;object-fit:cover"></video>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="width:70%;height:2px;background:rgba(181,73,28,0.8);box-shadow:0 0 8px rgba(181,73,28,0.6)"></div>
+        </div>
+        <button id="stopScanBtn" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);border:none;color:white;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+        <div id="scanStatus" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;color:rgba(255,255,255,0.8)">Richt de camera op de barcode...</div>
       </div>
       <div class="lookup-result" id="lookupResult"></div>
     </div>
@@ -395,6 +405,65 @@ document.getElementById('wishSearchInput').addEventListener('input',renderBooks)
 document.getElementById('sortSelect').addEventListener('change',renderBooks);
 document.getElementById('tableSearchInput').addEventListener('input',renderTable);
 document.getElementById('tableSortSelect').addEventListener('change',renderTable);
+
+// ── BARCODE SCANNER ───────────────────────────────────────────
+let scannerActive = false;
+let codeReader = null;
+
+document.getElementById('scanBtn').addEventListener('click', async () => {
+  if (scannerActive) { stopScanner(); return; }
+  const wrap = document.getElementById('scannerWrap');
+  const video = document.getElementById('scannerVideo');
+  const status = document.getElementById('scanStatus');
+  
+  try {
+    // Check camera permission
+    await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    
+    wrap.style.display = 'block';
+    document.getElementById('scanBtn').textContent = '⏹';
+    scannerActive = true;
+    status.textContent = 'Richt de camera op de barcode...';
+    
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const devices = await codeReader.listVideoInputDevices();
+    // Prefer back camera
+    const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('environment')) || devices[devices.length - 1];
+    const deviceId = backCam ? backCam.deviceId : undefined;
+    
+    codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+      if (result) {
+        const code = result.getText();
+        // Only process EAN/ISBN barcodes (12-13 digits)
+        if (/^\d{12,13}$/.test(code)) {
+          status.textContent = 'Barcode gevonden: ' + code;
+          stopScanner();
+          document.getElementById('lookupInput').value = code;
+          document.getElementById('lookupBtn').click();
+        }
+      }
+    });
+  } catch(e) {
+    wrap.style.display = 'none';
+    scannerActive = false;
+    document.getElementById('scanBtn').textContent = '📷';
+    if (e.name === 'NotAllowedError') {
+      toast('Camera toegang geweigerd. Geef toestemming in je browserinstellingen.');
+    } else {
+      toast('Camera niet beschikbaar: ' + e.message);
+    }
+  }
+});
+
+document.getElementById('stopScanBtn').addEventListener('click', stopScanner);
+
+function stopScanner() {
+  if (codeReader) { codeReader.reset(); codeReader = null; }
+  document.getElementById('scannerWrap').style.display = 'none';
+  document.getElementById('scanBtn').textContent = '📷';
+  scannerActive = false;
+}
+
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveToCloud()});
 window.addEventListener('beforeunload',()=>saveToCloud());
 </script>
