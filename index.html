@@ -343,7 +343,7 @@ function getSession(){try{return JSON.parse(localStorage.getItem('bl_sess'))}cat
 function setSession(s){session=s;if(s)s.tokenSetAt=Date.now();s?localStorage.setItem('bl_sess',JSON.stringify(s)):localStorage.removeItem('bl_sess')}
 function setSyncStatus(state){const dot=document.getElementById('syncDot'),lbl=document.getElementById('syncLabel');if(!dot)return;dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');lbl.textContent=state==='syncing'?'Opslaan...':state==='error'?'Sync mislukt':'Gesynchroniseerd'}
 async function loadFromCloud(){if(!session)return;try{const row=await sb.getRow(session.access_token,session.user.id);if(row&&Array.isArray(row.data)){books=row.data;localStorage.setItem('bl_local',JSON.stringify(books))}else{const loc=localStorage.getItem('bl_local');if(loc)books=JSON.parse(loc)}}catch{const loc=localStorage.getItem('bl_local');if(loc)books=JSON.parse(loc)}}
-async function async saveToCloud(){
+async function saveToCloud(){
   if(!session)return;
   setSyncStatus('syncing');
   localStorage.setItem('bl_local',JSON.stringify(books));
